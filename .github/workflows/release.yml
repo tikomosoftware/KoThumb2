@@ -1,0 +1,63 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+    
+    - name: Extract version from tag
+      id: get_version
+      shell: pwsh
+      run: |
+        $tag = "${{ github.ref_name }}"
+        $version = $tag -replace '^v', ''
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        echo "Version: $version"
+    
+    - name: Build Release Packages
+      shell: pwsh
+      run: |
+        .\build-release.ps1 -Version "${{ steps.get_version.outputs.VERSION }}"
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/KoThumb2-v${{ steps.get_version.outputs.VERSION }}-framework-dependent-release.zip
+          dist/KoThumb2-v${{ steps.get_version.outputs.VERSION }}-standalone-release.zip
+        body: |
+          ## KoThumb2 v${{ steps.get_version.outputs.VERSION }}
+          
+          ### ダウンロード
+          
+          **フレームワーク依存版（軽量）:**
+          - サイズ: 約2MB
+          - 必要環境: .NET 9.0 Desktop Runtime
+          - [.NET 9.0 Runtimeをダウンロード](https://dotnet.microsoft.com/download/dotnet/9.0)
+          
+          **自己完結型版（単一EXE）:**
+          - サイズ: 約45MB
+          - 必要環境: なし（.NET Runtimeのインストール不要）
+          
+          ### 変更内容
+          
+          リリースノートをここに記載してください。
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
